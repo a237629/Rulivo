@@ -1,0 +1,267 @@
+generator client {
+  provider               = "prisma-client"
+  output                 = "../src/generated/prisma"
+  moduleFormat           = "esm"
+  generatedFileExtension = "ts"
+  importFileExtension    = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum TradeSide {
+  LONG
+  SHORT
+}
+
+enum TradeSource {
+  MANUAL
+  CSV
+  SCREENSHOT
+  API
+}
+
+enum TradeStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  CANCELED
+}
+
+enum PaymentProvider {
+  APP_STORE
+  STRIPE
+  WECHAT_PAY
+  ALIPAY
+  MANUAL
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  GRACE_PERIOD
+  CANCELED
+  EXPIRED
+  REFUNDED
+}
+
+enum SubscriptionEnvironment {
+  SANDBOX
+  PRODUCTION
+}
+
+enum AuthProvider {
+  EMAIL
+  APPLE
+  GOOGLE
+}
+
+enum TradingMarket {
+  CHINA
+  HONG_KONG
+  UNITED_STATES
+  FOREX
+  CRYPTO
+  FUTURES
+}
+
+enum RiskUnit {
+  PERCENT_OF_EQUITY
+  FIXED_AMOUNT
+  R_MULTIPLE
+}
+
+enum Role {
+  USER
+  SUPPORT
+  ANALYST
+  ADMIN
+}
+
+model User {
+  id                  String               @id @default(uuid()) @db.Uuid
+  email               String               @unique @db.VarChar(320)
+  status              UserStatus           @default(ACTIVE)
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+  profile             UserProfile?
+  tradingAccounts     TradingAccount[]
+  trades              Trade[]
+  subscriptions       Subscription[]
+  authIdentities      AuthIdentity[]
+  authSessions        AuthSession[]
+  roleAssignments     UserRoleAssignment[]
+  auditEvents         AuditLog[]           @relation("AuditActor")
+  targetedAuditEvents AuditLog[]           @relation("AuditTarget")
+
+  @@map("users")
+}
+
+model UserRoleAssignment {
+  userId    String   @map("user_id") @db.Uuid
+  role      Role
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, role])
+  @@index([role])
+  @@map("user_role_assignments")
+}
+
+model AuditLog {
+  id               String   @id @default(uuid()) @db.Uuid
+  actorUserId      String?  @map("actor_user_id") @db.Uuid
+  actorEmail       String   @map("actor_email") @db.VarChar(320)
+  action           String   @db.VarChar(100)
+  targetType       String   @map("target_type") @db.VarChar(100)
+  targetUserId     String?  @map("target_user_id") @db.Uuid
+  targetIdentifier String   @map("target_identifier") @db.VarChar(320)
+  metadata         Json?
+  requestId        String   @map("request_id") @db.VarChar(128)
+  ipAddress        String?  @map("ip_address") @db.VarChar(45)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  actor            User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  targetUser       User?    @relation("AuditTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId, createdAt])
+  @@index([targetUserId, createdAt])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}
+
+model AuthIdentity {
+  id              String       @id @default(uuid()) @db.Uuid
+  userId          String       @map("user_id") @db.Uuid
+  provider        AuthProvider
+  providerSubject String       @map("provider_subject") @db.VarChar(320)
+  email           String?      @db.VarChar(320)
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerSubject])
+  @@index([userId])
+  @@map("auth_identities")
+}
+
+model EmailVerification {
+  id         String    @id @default(uuid()) @db.Uuid
+  email      String    @db.VarChar(320)
+  codeHash   String    @map("code_hash") @db.Char(64)
+  attempts   Int       @default(0)
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([email, createdAt])
+  @@index([expiresAt])
+  @@map("email_verifications")
+}
+
+model AuthSession {
+  id               String        @id @default(uuid()) @db.Uuid
+  userId           String        @map("user_id") @db.Uuid
+  refreshTokenHash String        @unique @map("refresh_token_hash") @db.Char(64)
+  expiresAt        DateTime      @map("expires_at") @db.Timestamptz(3)
+  revokedAt        DateTime?     @map("revoked_at") @db.Timestamptz(3)
+  replacedById     String?       @map("replaced_by_id") @db.Uuid
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastUsedAt       DateTime?     @map("last_used_at") @db.Timestamptz(3)
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replacedBy       AuthSession?  @relation("SessionRotation", fields: [replacedById], references: [id], onDelete: SetNull)
+  replaces         AuthSession[] @relation("SessionRotation")
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+  @@map("auth_sessions")
+}
+
+model UserProfile {
+  userId                String        @id @map("user_id") @db.Uuid
+  displayName           String?       @map("display_name") @db.VarChar(100)
+  locale                String        @default("zh-CN") @db.VarChar(16)
+  timeZone              String        @default("UTC") @map("time_zone") @db.VarChar(64)
+  defaultCurrency       String        @default("USD") @map("default_currency") @db.Char(3)
+  defaultMarket         TradingMarket @default(UNITED_STATES) @map("default_market")
+  riskUnit              RiskUnit      @default(PERCENT_OF_EQUITY) @map("risk_unit")
+  onboardingCompletedAt DateTime?     @map("onboarding_completed_at") @db.Timestamptz(3)
+  createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user                  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model TradingAccount {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  name         String    @db.VarChar(100)
+  provider     String?   @db.VarChar(100)
+  accountType  String?   @map("account_type") @db.VarChar(50)
+  baseCurrency String    @default("USD") @map("base_currency") @db.Char(3)
+  archivedAt   DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trades       Trade[]
+
+  @@unique([userId, name])
+  @@unique([id, userId])
+  @@index([userId])
+  @@map("trading_accounts")
+}
+
+model Trade {
+  id               String         @id @default(uuid()) @db.Uuid
+  userId           String         @map("user_id") @db.Uuid
+  tradingAccountId String         @map("trading_account_id") @db.Uuid
+  symbol           String         @db.VarChar(32)
+  market           String?        @db.VarChar(32)
+  side             TradeSide
+  openedAt         DateTime       @map("opened_at") @db.Timestamptz(3)
+  closedAt         DateTime?      @map("closed_at") @db.Timestamptz(3)
+  quantity         Decimal        @db.Decimal(30, 10)
+  entryPriceMinor  BigInt         @map("entry_price_minor")
+  exitPriceMinor   BigInt?        @map("exit_price_minor")
+  currency         String         @db.Char(3)
+  realizedPnlMinor BigInt?        @map("realized_pnl_minor")
+  rMultiple        Decimal?       @map("r_multiple") @db.Decimal(18, 6)
+  source           TradeSource    @default(MANUAL)
+  status           TradeStatus    @default(DRAFT)
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tradingAccount   TradingAccount @relation(fields: [tradingAccountId, userId], references: [id, userId], onDelete: Restrict)
+
+  @@index([userId, openedAt])
+  @@index([tradingAccountId, openedAt])
+  @@index([status])
+  @@map("trades")
+}
+
+model Subscription {
+  id                    String                  @id @default(uuid()) @db.Uuid
+  userId                String                  @map("user_id") @db.Uuid
+  paymentProvider       PaymentProvider         @map("payment_provider")
+  providerCustomerId    String?                 @map("provider_customer_id") @db.VarChar(255)
+  providerTransactionId String?                 @unique @map("provider_transaction_id") @db.VarChar(255)
+  productCode           String                  @map("product_code") @db.VarChar(100)
+  status                SubscriptionStatus
+  currentPeriodStart    DateTime?               @map("current_period_start") @db.Timestamptz(3)
+  currentPeriodEnd      DateTime?               @map("current_period_end") @db.Timestamptz(3)
+  cancelAtPeriodEnd     Boolean                 @default(false) @map("cancel_at_period_end")
+  environment           SubscriptionEnvironment
+  createdAt             DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user                  User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([currentPeriodEnd])
+  @@map("subscriptions")
+}

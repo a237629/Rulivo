@@ -1,0 +1,45 @@
+{
+  "name": "@rulivo/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@nestjs/common": "11.1.28",
+    "@nestjs/core": "11.1.28",
+    "@nestjs/platform-express": "11.1.28",
+    "@nestjs/swagger": "11.4.6",
+    "@prisma/adapter-pg": "7.9.0",
+    "@prisma/client": "7.9.0",
+    "@rulivo/config": "workspace:*",
+    "dotenv": "^17.2.1",
+    "jose": "6.2.3",
+    "nodemailer": "9.0.3",
+    "pg": "^8.22.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "zod": "^4.4.3"
+  },
+  "scripts": {
+    "build": "pnpm generate && tsc -p tsconfig.json",
+    "db:migrate:deploy": "node scripts/database-command.mjs migrate-deploy",
+    "db:migrate:dev": "node scripts/database-command.mjs migrate-dev",
+    "db:push": "node scripts/database-command.mjs db-push",
+    "db:reset": "node scripts/database-command.mjs migrate-reset",
+    "db:seed": "node scripts/database-command.mjs seed",
+    "dev": "node --watch dist/index.js",
+    "generate": "prisma generate",
+    "lint": "eslint .",
+    "start": "node dist/index.js",
+    "test": "vitest run --pool=threads --maxWorkers=1",
+    "typecheck": "pnpm generate && tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/nodemailer": "8.0.1",
+    "@types/pg": "^8.15.5",
+    "@types/supertest": "^6.0.3",
+    "prisma": "7.9.0",
+    "supertest": "7.2.2",
+    "tsx": "^4.20.6"
+  }
+}

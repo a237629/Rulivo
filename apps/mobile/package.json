@@ -1,0 +1,29 @@
+{
+  "name": "@rulivo/mobile",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "expo-router/entry",
+  "dependencies": {
+    "@rulivo/i18n": "workspace:*",
+    "expo": "57.0.8",
+    "expo-router": "57.0.8",
+    "react": "19.2.8",
+    "react-i18next": "^15.6.1",
+    "react-native": "^0.86.0",
+    "react-native-safe-area-context": "5.7.0",
+    "react-native-screens": "4.26.0",
+    "react-native-worklets": "0.10.0"
+  },
+  "devDependencies": {
+    "@react-native/metro-config": "0.86.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "expo start",
+    "lint": "eslint .",
+    "start": "expo start",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

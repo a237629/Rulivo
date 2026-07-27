@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "RULIVO",
+    "slug": "rulivo",
+    "scheme": "rulivo",
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "ios": {
+      "bundleIdentifier": "app.rulivo.mobile",
+      "supportsTablet": true
+    }
+  }
+}
