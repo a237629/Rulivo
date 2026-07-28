@@ -1,6 +1,6 @@
 import { Stack } from "expo-router";
-import { NavigationGuard } from "../src/navigation/guard.js";
-import { SessionProvider } from "../src/auth/session.js";
+import { NavigationGuard } from "../src/navigation/guard";
+import { SessionProvider } from "../src/auth/session";
 
 export default function RootLayout() {
   return (

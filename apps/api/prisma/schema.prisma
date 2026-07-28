@@ -34,6 +34,74 @@ enum TradeStatus {
   CANCELED
 }
 
+enum ExecutionAction {
+  BUY
+  SELL
+}
+
+enum FeeType {
+  COMMISSION
+  EXCHANGE
+  REGULATORY
+  TAX
+  OTHER
+}
+
+enum BehaviorRuleType {
+  LOSS_REENTRY
+  POSITION_INCREASE
+  MOVED_STOP
+  DAILY_TRADE_LIMIT
+  PLAN_DEVIATION
+}
+
+enum RuleEvaluationStatus {
+  PASS
+  FAIL
+  UNKNOWN
+}
+
+enum RuleEvidenceType {
+  TRADE
+  METRIC
+  MISSING_DATA
+}
+
+enum TradeQuadrant {
+  EXCELLENT
+  QUALIFIED
+  DANGEROUS
+  ERROR
+  UNKNOWN
+}
+
+enum FollowUpSessionStatus {
+  ACTIVE
+  COMPLETED
+  MAX_ROUNDS
+}
+
+enum ImageSource {
+  CAMERA
+  LIBRARY
+}
+
+enum ScreenshotParseStatus {
+  CANDIDATE
+  CONFIRMED
+}
+
+enum VoiceTranscriptionStatus {
+  CANDIDATE
+  CONFIRMED
+}
+
+enum CsvImportStatus {
+  UPLOADED
+  MAPPED
+  CONFIRMED
+}
+
 enum PaymentProvider {
   APP_STORE
   STRIPE
@@ -99,6 +167,14 @@ model User {
   roleAssignments     UserRoleAssignment[]
   auditEvents         AuditLog[]           @relation("AuditActor")
   targetedAuditEvents AuditLog[]           @relation("AuditTarget")
+  csvImportBatches    CsvImportBatch[]
+  csvMappingTemplates CsvMappingTemplate[]
+  playbooks           Playbook[]
+  tradeImages         TradeImage[]
+  voiceRecordings     VoiceRecording[]
+  tradeNotes          TradeNote[]
+  followUpSessions    FollowUpSession[]
+  tradeReviewSummaries TradeReviewSummary[]
 
   @@map("users")
 }
@@ -191,6 +267,7 @@ model UserProfile {
   defaultMarket         TradingMarket @default(UNITED_STATES) @map("default_market")
   riskUnit              RiskUnit      @default(PERCENT_OF_EQUITY) @map("risk_unit")
   onboardingCompletedAt DateTime?     @map("onboarding_completed_at") @db.Timestamptz(3)
+  autoDeleteVoiceAfterTranscription Boolean @default(false) @map("auto_delete_voice_after_transcription")
   createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
   user                  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -199,17 +276,18 @@ model UserProfile {
 }
 
 model TradingAccount {
-  id           String    @id @default(uuid()) @db.Uuid
-  userId       String    @map("user_id") @db.Uuid
-  name         String    @db.VarChar(100)
-  provider     String?   @db.VarChar(100)
-  accountType  String?   @map("account_type") @db.VarChar(50)
-  baseCurrency String    @default("USD") @map("base_currency") @db.Char(3)
-  archivedAt   DateTime? @map("archived_at") @db.Timestamptz(3)
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           String           @id @default(uuid()) @db.Uuid
+  userId       String           @map("user_id") @db.Uuid
+  name         String           @db.VarChar(100)
+  provider     String?          @db.VarChar(100)
+  accountType  String?          @map("account_type") @db.VarChar(50)
+  baseCurrency String           @default("USD") @map("base_currency") @db.Char(3)
+  archivedAt   DateTime?        @map("archived_at") @db.Timestamptz(3)
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   trades       Trade[]
+  csvImports   CsvImportBatch[]
 
   @@unique([userId, name])
   @@unique([id, userId])
@@ -217,32 +295,417 @@ model TradingAccount {
   @@map("trading_accounts")
 }
 
-model Trade {
-  id               String         @id @default(uuid()) @db.Uuid
-  userId           String         @map("user_id") @db.Uuid
-  tradingAccountId String         @map("trading_account_id") @db.Uuid
-  symbol           String         @db.VarChar(32)
-  market           String?        @db.VarChar(32)
-  side             TradeSide
-  openedAt         DateTime       @map("opened_at") @db.Timestamptz(3)
-  closedAt         DateTime?      @map("closed_at") @db.Timestamptz(3)
-  quantity         Decimal        @db.Decimal(30, 10)
-  entryPriceMinor  BigInt         @map("entry_price_minor")
-  exitPriceMinor   BigInt?        @map("exit_price_minor")
-  currency         String         @db.Char(3)
-  realizedPnlMinor BigInt?        @map("realized_pnl_minor")
-  rMultiple        Decimal?       @map("r_multiple") @db.Decimal(18, 6)
-  source           TradeSource    @default(MANUAL)
-  status           TradeStatus    @default(DRAFT)
-  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
-  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tradingAccount   TradingAccount @relation(fields: [tradingAccountId, userId], references: [id, userId], onDelete: Restrict)
+model Instrument {
+  id            String   @id @default(uuid()) @db.Uuid
+  symbol        String   @db.VarChar(32)
+  market        String   @db.VarChar(32)
+  name          String?  @db.VarChar(200)
+  assetClass    String?  @map("asset_class") @db.VarChar(50)
+  currency      String   @db.Char(3)
+  priceScale    Int      @default(2) @map("price_scale") @db.SmallInt
+  quantityScale Int      @default(10) @map("quantity_scale") @db.SmallInt
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  trades        Trade[]
 
+  @@unique([market, symbol])
+  @@index([symbol])
+  @@map("instruments")
+}
+
+model Trade {
+  id                    String            @id @default(uuid()) @db.Uuid
+  userId                String            @map("user_id") @db.Uuid
+  tradingAccountId      String            @map("trading_account_id") @db.Uuid
+  instrumentId          String            @map("instrument_id") @db.Uuid
+  importBatchId         String?           @map("import_batch_id") @db.Uuid
+  playbookId            String?           @map("playbook_id") @db.Uuid
+  symbol                String            @db.VarChar(32)
+  market                String?           @db.VarChar(32)
+  side                  TradeSide
+  openedAt              DateTime          @map("opened_at") @db.Timestamptz(3)
+  closedAt              DateTime?         @map("closed_at") @db.Timestamptz(3)
+  quantity              Decimal           @db.Decimal(30, 10)
+  entryPriceMinor       BigInt            @map("entry_price_minor")
+  exitPriceMinor        BigInt?           @map("exit_price_minor")
+  currency              String            @db.Char(3)
+  realizedPnlMinor      BigInt?           @map("realized_pnl_minor")
+  initialRiskMinor      BigInt?           @map("initial_risk_minor")
+  rMultiple             Decimal?          @map("r_multiple") @db.Decimal(18, 6)
+  analyticsCalculatedAt DateTime?         @map("analytics_calculated_at") @db.Timestamptz(3)
+  executionScore        Int?              @map("execution_score") @db.SmallInt
+  executionScoreVersion String?           @map("execution_score_version") @db.VarChar(32)
+  executionScoreCalculatedAt DateTime?    @map("execution_score_calculated_at") @db.Timestamptz(3)
+  plannedTargetRMultiple Decimal?         @map("planned_target_r_multiple") @db.Decimal(18, 6)
+  resultScore           Int?              @map("result_score") @db.SmallInt
+  resultScoreVersion    String?           @map("result_score_version") @db.VarChar(32)
+  resultScoreCalculatedAt DateTime?        @map("result_score_calculated_at") @db.Timestamptz(3)
+  quadrantEvaluation     TradeQuadrant?    @map("quadrant_evaluation")
+  quadrantVersion        String?           @map("quadrant_version") @db.VarChar(32)
+  quadrantCalculatedAt   DateTime?         @map("quadrant_calculated_at") @db.Timestamptz(3)
+  source                TradeSource       @default(MANUAL)
+  status                TradeStatus       @default(DRAFT)
+  createdAt             DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tradingAccount        TradingAccount    @relation(fields: [tradingAccountId, userId], references: [id, userId], onDelete: Restrict)
+  instrument            Instrument        @relation(fields: [instrumentId], references: [id], onDelete: Restrict)
+  importBatch           CsvImportBatch?   @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  playbook              Playbook?         @relation(fields: [playbookId], references: [id], onDelete: SetNull)
+  executions            Execution[]
+  fees                  Fee[]
+  ruleResults           TradeRuleResult[]
+  stopEvents            TradeStopEvent[]
+  images                TradeImage[]
+  voiceRecordings       VoiceRecording[]
+  notes                 TradeNote[]
+  followUpSessions      FollowUpSession[]
+  reviewSummary         TradeReviewSummary?
+
+  @@unique([id, userId])
   @@index([userId, openedAt])
   @@index([tradingAccountId, openedAt])
+  @@index([instrumentId, openedAt])
+  @@index([importBatchId])
+  @@index([playbookId])
   @@index([status])
+  @@index([userId, executionScore])
+  @@index([userId, resultScore])
+  @@index([userId, quadrantEvaluation])
   @@map("trades")
+}
+
+model TradeNote {
+  id        String   @id @default(uuid()) @db.Uuid
+  tradeId   String   @map("trade_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  body      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  trade     Trade    @relation(fields: [tradeId, userId], references: [id, userId], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tradeId, createdAt])
+  @@index([userId, updatedAt])
+  @@map("trade_notes")
+}
+
+model FollowUpSession {
+  id          String                @id @default(uuid()) @db.Uuid
+  tradeId     String                @map("trade_id") @db.Uuid
+  userId      String                @map("user_id") @db.Uuid
+  status      FollowUpSessionStatus @default(ACTIVE)
+  currentRound Int                  @default(0) @map("current_round")
+  createdAt   DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  completedAt DateTime?             @map("completed_at") @db.Timestamptz(3)
+  trade       Trade                 @relation(fields: [tradeId, userId], references: [id, userId], onDelete: Cascade)
+  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  turns       FollowUpTurn[]
+
+  @@index([tradeId, createdAt])
+  @@index([userId, status])
+  @@map("follow_up_sessions")
+}
+
+model FollowUpTurn {
+  id                 String          @id @default(uuid()) @db.Uuid
+  sessionId          String          @map("session_id") @db.Uuid
+  round              Int
+  evidenceKey        String          @map("evidence_key") @db.VarChar(50)
+  sourceRuleResultId String?         @map("source_rule_result_id") @db.Uuid
+  question           String          @db.VarChar(500)
+  quickOptions       Json            @map("quick_options")
+  selectedOption     String?         @map("selected_option") @db.VarChar(100)
+  freeText           String?         @map("free_text") @db.Text
+  answeredAt         DateTime?       @map("answered_at") @db.Timestamptz(3)
+  createdAt          DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  session            FollowUpSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, round])
+  @@index([sourceRuleResultId])
+  @@map("follow_up_turns")
+}
+
+model TradeReviewSummary {
+  id               String   @id @default(uuid()) @db.Uuid
+  tradeId          String   @unique @map("trade_id") @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  summary           Json
+  generatorVersion String   @map("generator_version") @db.VarChar(32)
+  generatedAt      DateTime @default(now()) @map("generated_at") @db.Timestamptz(3)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  trade            Trade    @relation(fields: [tradeId, userId], references: [id, userId], onDelete: Cascade)
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tradeId, userId])
+  @@index([userId, generatedAt])
+  @@map("trade_review_summaries")
+}
+
+model TradeImage {
+  id               String      @id @default(uuid()) @db.Uuid
+  userId           String      @map("user_id") @db.Uuid
+  tradeId          String?     @map("trade_id") @db.Uuid
+  objectKey        String      @unique @map("object_key") @db.VarChar(255)
+  originalFileName String?     @map("original_file_name") @db.VarChar(255)
+  mediaType        String      @map("media_type") @db.VarChar(64)
+  sizeBytes        Int         @map("size_bytes")
+  width            Int
+  height           Int
+  source           ImageSource
+  consentedAt      DateTime    @map("consented_at") @db.Timestamptz(3)
+  exifRemoved      Boolean     @default(true) @map("exif_removed")
+  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trade            Trade?      @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  parses           ScreenshotParse[]
+
+  @@index([userId, createdAt])
+  @@index([tradeId, createdAt])
+  @@map("trade_images")
+}
+
+model ScreenshotParse {
+  id             String                @id @default(uuid()) @db.Uuid
+  tradeImageId   String                @map("trade_image_id") @db.Uuid
+  status         ScreenshotParseStatus @default(CANDIDATE)
+  candidates     Json
+  confirmedData  Json?                 @map("confirmed_data")
+  modelVersion   String                @map("model_version") @db.VarChar(100)
+  promptVersion  String                @map("prompt_version") @db.VarChar(50)
+  confirmedAt    DateTime?             @map("confirmed_at") @db.Timestamptz(3)
+  createdAt      DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  tradeImage     TradeImage            @relation(fields: [tradeImageId], references: [id], onDelete: Cascade)
+
+  @@index([tradeImageId, createdAt])
+  @@map("screenshot_parses")
+}
+
+model VoiceRecording {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  tradeId      String?  @map("trade_id") @db.Uuid
+  objectKey    String   @unique @map("object_key") @db.VarChar(255)
+  mediaType    String   @map("media_type") @db.VarChar(64)
+  sizeBytes    Int      @map("size_bytes")
+  durationMs   Int      @map("duration_ms")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  objectDeletedAt DateTime? @map("object_deleted_at") @db.Timestamptz(3)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trade        Trade?   @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  transcription VoiceTranscription?
+
+  @@index([userId, createdAt])
+  @@index([tradeId, createdAt])
+  @@map("voice_recordings")
+}
+
+model VoiceTranscription {
+  id               String                   @id @default(uuid()) @db.Uuid
+  voiceRecordingId String                   @unique @map("voice_recording_id") @db.Uuid
+  status           VoiceTranscriptionStatus @default(CANDIDATE)
+  candidateText    String                   @map("candidate_text") @db.Text
+  confirmedText    String?                  @map("confirmed_text") @db.Text
+  modelVersion     String                   @map("model_version") @db.VarChar(100)
+  promptVersion    String                   @map("prompt_version") @db.VarChar(50)
+  confirmedAt      DateTime?                @map("confirmed_at") @db.Timestamptz(3)
+  createdAt        DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  voiceRecording   VoiceRecording           @relation(fields: [voiceRecordingId], references: [id], onDelete: Cascade)
+  insightExtraction VoiceInsightExtraction?
+
+  @@index([status, createdAt])
+  @@map("voice_transcriptions")
+}
+
+model VoiceInsightExtraction {
+  id                   String             @id @default(uuid()) @db.Uuid
+  voiceTranscriptionId String             @unique @map("voice_transcription_id") @db.Uuid
+  extractedData        Json               @map("extracted_data")
+  modelVersion         String             @map("model_version") @db.VarChar(100)
+  promptVersion        String             @map("prompt_version") @db.VarChar(50)
+  safetyBoundary       String             @map("safety_boundary") @db.VarChar(255)
+  createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  voiceTranscription   VoiceTranscription @relation(fields: [voiceTranscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@map("voice_insight_extractions")
+}
+
+model TradeStopEvent {
+  id                     String   @id @default(uuid()) @db.Uuid
+  tradeId                String   @map("trade_id") @db.Uuid
+  previousStopPriceMinor BigInt   @map("previous_stop_price_minor")
+  newStopPriceMinor      BigInt   @map("new_stop_price_minor")
+  occurredAt             DateTime @map("occurred_at") @db.Timestamptz(3)
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  trade                  Trade    @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+
+  @@index([tradeId, occurredAt])
+  @@map("trade_stop_events")
+}
+
+model Playbook {
+  id        String         @id @default(uuid()) @db.Uuid
+  userId    String         @map("user_id") @db.Uuid
+  name      String         @db.VarChar(100)
+  isActive  Boolean        @default(true) @map("is_active")
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rules     PlaybookRule[]
+  trades    Trade[]
+
+  @@unique([userId, name])
+  @@index([userId, isActive])
+  @@map("playbooks")
+}
+
+model PlaybookRule {
+  id         String            @id @default(uuid()) @db.Uuid
+  playbookId String            @map("playbook_id") @db.Uuid
+  type       BehaviorRuleType
+  config     Json
+  enabled    Boolean           @default(true)
+  createdAt  DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  playbook   Playbook          @relation(fields: [playbookId], references: [id], onDelete: Cascade)
+  results    TradeRuleResult[]
+
+  @@unique([playbookId, type])
+  @@index([type, enabled])
+  @@map("playbook_rules")
+}
+
+model TradeRuleResult {
+  id               String               @id @default(uuid()) @db.Uuid
+  tradeId          String               @map("trade_id") @db.Uuid
+  playbookRuleId   String               @map("playbook_rule_id") @db.Uuid
+  status           RuleEvaluationStatus
+  evidenceType     RuleEvidenceType     @map("evidence_type")
+  evidenceId       String?              @map("evidence_id") @db.Uuid
+  explanation      String               @db.VarChar(500)
+  confidence       Decimal              @db.Decimal(4, 3)
+  algorithmVersion String               @map("algorithm_version") @db.VarChar(32)
+  evaluatedAt      DateTime             @default(now()) @map("evaluated_at") @db.Timestamptz(3)
+  trade            Trade                @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  playbookRule     PlaybookRule         @relation(fields: [playbookRuleId], references: [id], onDelete: Cascade)
+
+  @@unique([tradeId, playbookRuleId])
+  @@index([tradeId, status])
+  @@map("trade_rule_results")
+}
+
+model Execution {
+  id           String                    @id @default(uuid()) @db.Uuid
+  tradeId      String                    @map("trade_id") @db.Uuid
+  sequence     Int
+  action       ExecutionAction
+  executedAt   DateTime                  @map("executed_at") @db.Timestamptz(3)
+  quantity     Decimal                   @db.Decimal(30, 10)
+  priceMinor   BigInt                    @map("price_minor")
+  externalId   String?                   @map("external_id") @db.VarChar(255)
+  createdAt    DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  trade        Trade                     @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  fees         Fee[]
+  importSource CsvImportExecutionSource?
+
+  @@unique([tradeId, sequence])
+  @@unique([id, tradeId])
+  @@index([tradeId, executedAt])
+  @@map("executions")
+}
+
+model Fee {
+  id          String     @id @default(uuid()) @db.Uuid
+  tradeId     String     @map("trade_id") @db.Uuid
+  executionId String?    @map("execution_id") @db.Uuid
+  type        FeeType
+  amountMinor BigInt     @map("amount_minor")
+  currency    String     @db.Char(3)
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  trade       Trade      @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  execution   Execution? @relation(fields: [executionId, tradeId], references: [id, tradeId], onDelete: Cascade)
+
+  @@index([tradeId])
+  @@index([executionId])
+  @@map("fees")
+}
+
+model CsvImportBatch {
+  id               String          @id @default(uuid()) @db.Uuid
+  userId           String          @map("user_id") @db.Uuid
+  tradingAccountId String          @map("trading_account_id") @db.Uuid
+  fileName         String          @map("file_name") @db.VarChar(255)
+  contentHash      String          @map("content_hash") @db.Char(64)
+  fileSizeBytes    Int             @map("file_size_bytes")
+  headers          Json
+  mapping          Json?
+  mappingOptions   Json?           @map("mapping_options")
+  presetId         String?         @map("preset_id") @db.VarChar(32)
+  status           CsvImportStatus @default(UPLOADED)
+  totalRows        Int             @map("total_rows")
+  validRows        Int             @default(0) @map("valid_rows")
+  errorRows        Int             @default(0) @map("error_rows")
+  confirmedAt      DateTime?       @map("confirmed_at") @db.Timestamptz(3)
+  groupedAt        DateTime?       @map("grouped_at") @db.Timestamptz(3)
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tradingAccount   TradingAccount  @relation(fields: [tradingAccountId, userId], references: [id, userId], onDelete: Cascade)
+  rows             CsvImportRow[]
+  trades           Trade[]
+
+  @@unique([userId, contentHash])
+  @@index([userId, createdAt])
+  @@index([tradingAccountId, createdAt])
+  @@map("csv_import_batches")
+}
+
+model CsvImportRow {
+  id               String                     @id @default(uuid()) @db.Uuid
+  batchId          String                     @map("batch_id") @db.Uuid
+  rowNumber        Int                        @map("row_number")
+  rawData          Json                       @map("raw_data")
+  normalizedData   Json?                      @map("normalized_data")
+  validationErrors Json?                      @map("validation_errors")
+  isValid          Boolean                    @default(false) @map("is_valid")
+  createdAt        DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  batch            CsvImportBatch             @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  executionSources CsvImportExecutionSource[]
+
+  @@unique([batchId, rowNumber])
+  @@index([batchId, isValid])
+  @@map("csv_import_rows")
+}
+
+model CsvImportExecutionSource {
+  id                String       @id @default(uuid()) @db.Uuid
+  csvImportRowId    String       @map("csv_import_row_id") @db.Uuid
+  executionId       String       @unique @map("execution_id") @db.Uuid
+  allocatedQuantity Decimal      @map("allocated_quantity") @db.Decimal(30, 10)
+  allocatedFeeMinor BigInt       @map("allocated_fee_minor")
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  csvImportRow      CsvImportRow @relation(fields: [csvImportRowId], references: [id], onDelete: Cascade)
+  execution         Execution    @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([csvImportRowId])
+  @@map("csv_import_execution_sources")
+}
+
+model CsvMappingTemplate {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  name      String   @db.VarChar(100)
+  mapping   Json
+  options   Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+  @@index([userId, updatedAt])
+  @@map("csv_mapping_templates")
 }
 
 model Subscription {

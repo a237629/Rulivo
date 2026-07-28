@@ -1,6 +1,7 @@
 import "reflect-metadata";
 import { ConsoleLogger, type INestApplication } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
+import type { NestExpressApplication } from "@nestjs/platform-express";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { ApiExceptionFilter } from "./api-exception.filter.js";
 import { ApiResponseInterceptor } from "./api-response.interceptor.js";
@@ -11,10 +12,11 @@ export interface CreateAppOptions {
 }
 
 export async function createApp(options: CreateAppOptions = {}): Promise<INestApplication> {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     abortOnError: false,
     logger: options.logger ?? new ConsoleLogger({ json: true })
   });
+  app.useBodyParser("json", { limit: "2mb" });
   app.useGlobalFilters(new ApiExceptionFilter());
   app.useGlobalInterceptors(new ApiResponseInterceptor());
 

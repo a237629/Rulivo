@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
-import { useSession } from "../../src/auth/session.js";
-import { Screen } from "../../src/components/screen.js";
+import { useSession } from "../../src/auth/session";
+import { Screen } from "../../src/components/screen";
 
 export default function SignInScreen() {
   const router = useRouter();

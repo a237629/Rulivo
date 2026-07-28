@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createDefaultPreferences, validatePreferences } from "./model.js";
+import { createDefaultPreferences, validatePreferences } from "./model";
 
 describe("onboarding preferences", () => {
   it("uses a valid detected time zone and complete defaults", () => {

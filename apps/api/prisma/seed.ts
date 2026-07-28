@@ -16,6 +16,8 @@ const prisma = new PrismaClient({
 
 const userId = "00000000-0000-4000-8000-000000000001";
 const accountId = "00000000-0000-4000-8000-000000000002";
+const instrumentId = "00000000-0000-4000-8000-000000000005";
+const tradeId = "00000000-0000-4000-8000-000000000003";
 
 async function main(): Promise<void> {
   await prisma.user.upsert({
@@ -56,13 +58,33 @@ async function main(): Promise<void> {
     skipDuplicates: true
   });
 
-  await prisma.trade.upsert({
-    where: { id: "00000000-0000-4000-8000-000000000003" },
+  await prisma.instrument.upsert({
+    where: { market_symbol: { market: "NASDAQ", symbol: "AAPL" } },
     update: {},
     create: {
-      id: "00000000-0000-4000-8000-000000000003",
+      id: instrumentId,
+      symbol: "AAPL",
+      market: "NASDAQ",
+      name: "Apple Inc.",
+      assetClass: "EQUITY",
+      currency: "USD",
+      priceScale: 2,
+      quantityScale: 10
+    }
+  });
+
+  const instrument = await prisma.instrument.findUniqueOrThrow({
+    where: { market_symbol: { market: "NASDAQ", symbol: "AAPL" } }
+  });
+
+  await prisma.trade.upsert({
+    where: { id: tradeId },
+    update: { instrumentId: instrument.id },
+    create: {
+      id: tradeId,
       userId,
       tradingAccountId: accountId,
+      instrumentId: instrument.id,
       symbol: "AAPL",
       market: "NASDAQ",
       side: "LONG",
@@ -76,6 +98,50 @@ async function main(): Promise<void> {
       rMultiple: "1.25",
       source: "MANUAL",
       status: "CLOSED"
+    }
+  });
+
+  await prisma.execution.upsert({
+    where: { tradeId_sequence: { tradeId, sequence: 1 } },
+    update: {},
+    create: {
+      id: "00000000-0000-4000-8000-000000000006",
+      tradeId,
+      sequence: 1,
+      action: "BUY",
+      executedAt: new Date("2026-01-05T14:30:00.000Z"),
+      quantity: "10",
+      priceMinor: 18_750n,
+      fees: {
+        create: {
+          id: "00000000-0000-4000-8000-000000000008",
+          type: "COMMISSION",
+          amountMinor: 50n,
+          currency: "USD"
+        }
+      }
+    }
+  });
+
+  await prisma.execution.upsert({
+    where: { tradeId_sequence: { tradeId, sequence: 2 } },
+    update: {},
+    create: {
+      id: "00000000-0000-4000-8000-000000000007",
+      tradeId,
+      sequence: 2,
+      action: "SELL",
+      executedAt: new Date("2026-01-05T19:45:00.000Z"),
+      quantity: "10",
+      priceMinor: 18_920n,
+      fees: {
+        create: {
+          id: "00000000-0000-4000-8000-000000000009",
+          type: "COMMISSION",
+          amountMinor: 50n,
+          currency: "USD"
+        }
+      }
     }
   });
 

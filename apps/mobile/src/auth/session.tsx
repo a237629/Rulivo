@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, useState, type PropsWithChildren } from "react";
-import type { AppPath, SessionSnapshot } from "../navigation/policy.js";
-import type { UserPreferences } from "../preferences/model.js";
+import type { AppPath, SessionSnapshot } from "../navigation/policy";
+import type { UserPreferences } from "../preferences/model";
 
 interface SessionContextValue extends SessionSnapshot {
   completeOnboarding: (preferences: UserPreferences) => void;

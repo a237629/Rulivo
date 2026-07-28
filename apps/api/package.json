@@ -10,6 +10,7 @@
     "@nestjs/swagger": "11.4.6",
     "@prisma/adapter-pg": "7.9.0",
     "@prisma/client": "7.9.0",
+    "@rulivo/analytics-core": "workspace:*",
     "@rulivo/config": "workspace:*",
     "dotenv": "^17.2.1",
     "jose": "6.2.3",
@@ -17,6 +18,7 @@
     "pg": "^8.22.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
+    "sharp": "^0.35.3",
     "zod": "^4.4.3"
   },
   "scripts": {
@@ -30,11 +32,12 @@
     "generate": "prisma generate",
     "lint": "eslint .",
     "start": "node dist/index.js",
-    "test": "vitest run --pool=threads --maxWorkers=1",
+    "test": "pnpm --filter @rulivo/analytics-core build && vitest run --pool=threads --maxWorkers=1",
     "typecheck": "pnpm generate && tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
     "@types/express": "^5.0.3",
+    "@types/multer": "^2.2.0",
     "@types/nodemailer": "8.0.1",
     "@types/pg": "^8.15.5",
     "@types/supertest": "^6.0.3",

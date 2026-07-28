@@ -3,7 +3,7 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { I18nextProvider, useTranslation } from "react-i18next";
 import { Button, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { useSession } from "../../src/auth/session.js";
+import { useSession } from "../../src/auth/session";
 import {
   createDefaultPreferences,
   riskUnits,
@@ -11,7 +11,7 @@ import {
   tradingMarkets,
   validatePreferences,
   type UserPreferences
-} from "../../src/preferences/model.js";
+} from "../../src/preferences/model";
 
 function Choice<T extends string>({
   label,

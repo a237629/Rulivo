@@ -1,6 +1,16 @@
 /* global process */
 import { spawnSync } from "node:child_process";
+import { config as loadEnvironment } from "dotenv";
 import { createRequire } from "node:module";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const scriptDirectory = dirname(fileURLToPath(import.meta.url));
+loadEnvironment({
+  override: false,
+  path: resolve(scriptDirectory, "../../../.env"),
+  quiet: true
+});
 
 const prismaArguments = {
   "migrate-deploy": ["migrate", "deploy"],

@@ -1,7 +1,7 @@
 import { usePathname, useRouter } from "expo-router";
 import { useEffect } from "react";
-import { useSession } from "../auth/session.js";
-import { resolveNavigation } from "./policy.js";
+import { useSession } from "../auth/session";
+import { resolveNavigation } from "./policy";
 
 export function NavigationGuard() {
   const pathname = usePathname();

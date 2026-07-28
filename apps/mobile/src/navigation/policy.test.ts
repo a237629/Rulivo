@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeDeepLink, resolveBack, resolveNavigation } from "./policy.js";
+import { normalizeDeepLink, resolveBack, resolveNavigation } from "./policy";
 
 describe("deep links", () => {
   it("normalizes app-scheme and universal links", () => {

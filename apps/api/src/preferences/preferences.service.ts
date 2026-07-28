@@ -3,6 +3,7 @@ import { PrismaService } from "../database/prisma.service.js";
 import type { PreferenceInput } from "./preference-validation.js";
 
 export interface PreferenceResult extends PreferenceInput {
+  autoDeleteVoiceAfterTranscription: boolean;
   onboardingComplete: boolean;
 }
 
@@ -20,8 +21,14 @@ export class PreferencesService {
 
   public async get(userId: string): Promise<PreferenceResult> {
     const profile = await this.prisma.userProfile.findUnique({ where: { userId } });
-    if (profile === null) return { ...defaults, onboardingComplete: false };
+    if (profile === null)
+      return {
+        ...defaults,
+        autoDeleteVoiceAfterTranscription: false,
+        onboardingComplete: false
+      };
     return {
+      autoDeleteVoiceAfterTranscription: profile.autoDeleteVoiceAfterTranscription,
       defaultCurrency: profile.defaultCurrency.trim(),
       defaultMarket: profile.defaultMarket,
       locale: profile.locale as PreferenceResult["locale"],
@@ -46,6 +53,7 @@ export class PreferencesService {
       where: { userId }
     });
     return {
+      autoDeleteVoiceAfterTranscription: profile.autoDeleteVoiceAfterTranscription,
       defaultCurrency: profile.defaultCurrency.trim(),
       defaultMarket: profile.defaultMarket,
       locale: profile.locale as PreferenceResult["locale"],
@@ -53,5 +61,21 @@ export class PreferencesService {
       riskUnit: profile.riskUnit,
       timeZone: profile.timeZone
     };
+  }
+
+  public async saveVoiceRetention(
+    userId: string,
+    autoDeleteVoiceAfterTranscription: boolean
+  ): Promise<{ autoDeleteVoiceAfterTranscription: boolean }> {
+    await this.prisma.userProfile.upsert({
+      create: {
+        ...defaults,
+        autoDeleteVoiceAfterTranscription,
+        userId
+      },
+      update: { autoDeleteVoiceAfterTranscription },
+      where: { userId }
+    });
+    return { autoDeleteVoiceAfterTranscription };
   }
 }

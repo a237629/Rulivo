@@ -35,11 +35,14 @@ const statusCodes: Readonly<Record<number, string>> = {
 function exceptionMessage(exception: HttpException): { details?: unknown; message: string } {
   const response = exception.getResponse();
   if (typeof response === "string") return { message: response };
-  const body = response as { message?: string | string[] };
+  const body = response as { details?: unknown; message?: string | string[] };
   if (Array.isArray(body.message)) {
     return { details: body.message, message: "Request validation failed" };
   }
-  return { message: body.message ?? exception.message };
+  return {
+    ...(body.details === undefined ? {} : { details: body.details }),
+    message: body.message ?? exception.message
+  };
 }
 
 @Catch()
