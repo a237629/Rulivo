@@ -56,9 +56,19 @@ importers:
 
   apps/analytics-worker:
     dependencies:
+      '@rulivo/analytics-core':
+        specifier: workspace:*
+        version: link:../../packages/analytics-core
       '@rulivo/config':
         specifier: workspace:*
         version: link:../../packages/config
+      pg:
+        specifier: ^8.22.0
+        version: 8.22.0
+    devDependencies:
+      '@types/pg':
+        specifier: ^8.15.5
+        version: 8.20.0
 
   apps/api:
     dependencies:

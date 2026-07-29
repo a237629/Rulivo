@@ -93,10 +93,17 @@ describe("API foundation", () => {
     expect(body.paths).toHaveProperty("/trades/{tradeId}/notes");
     expect(body.paths).toHaveProperty("/trades/{tradeId}/notes/{noteId}");
     expect(body.paths).toHaveProperty("/analytics/core");
+    expect(body.paths).toHaveProperty("/analytics/pattern-confidence");
+    expect(body.paths).toHaveProperty("/analytics/pattern-explanations");
+    expect(body.paths).toHaveProperty("/analytics/pattern-explanations/generate");
+    expect(body.paths).toHaveProperty("/analytics/pattern-explanations/{explanationId}/feedback");
+    expect(body.paths).toHaveProperty("/analytics/evidence-report");
     expect(body.paths).toHaveProperty("/playbooks");
     expect(body.paths).toHaveProperty("/trades/{tradeId}/playbook");
     expect(body.paths).toHaveProperty("/trades/{tradeId}/rules/evaluate");
     expect(body.paths).toHaveProperty("/trades/{tradeId}/rule-results");
+    expect(body.paths).toHaveProperty("/trades/{tradeId}/evidence-snapshots");
+    expect(body.paths).toHaveProperty("/evidence-snapshots/{snapshotId}/recompute");
     expect(body.paths).toHaveProperty("/trades/{tradeId}/stop-events");
     expect(body.paths).toHaveProperty("/images");
     expect(body.paths).toHaveProperty("/images/{imageId}/content");

@@ -193,3 +193,13 @@ export {
   type TradeQuadrant,
   type TradeQuadrantEvaluation
 } from "./trade-quadrant.js";
+export {
+  calculatePatternConfidence,
+  PATTERN_CONFIDENCE_MINIMUM_SAMPLE_SIZE,
+  PATTERN_CONFIDENCE_TARGET_SAMPLE_SIZE,
+  PATTERN_CONFIDENCE_VERSION,
+  type PatternConfidence,
+  type PatternConfidenceInput,
+  type PatternConfidenceLevel,
+  type PatternDominantStatus
+} from "./pattern-confidence.js";

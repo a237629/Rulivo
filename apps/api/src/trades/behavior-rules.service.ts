@@ -7,6 +7,12 @@ import {
 } from "@nestjs/common";
 import { evaluateBehaviorRules, type BehaviorRuleType } from "@rulivo/analytics-core";
 import { PrismaService } from "../database/prisma.service.js";
+import type { Prisma } from "../generated/prisma/client.js";
+import {
+  buildBehaviorEvidenceSnapshots,
+  recomputeBehaviorEvidenceSnapshot,
+  type StoredBehaviorContext
+} from "./behavior-evidence-snapshot.js";
 
 export interface CreatePlaybookInput {
   lossReentryMinutes: number;
@@ -96,13 +102,20 @@ export class BehaviorRulesService {
       where: { id: tradeId, userId }
     });
     if (trade === null) throw new NotFoundException("Trade was not found");
-    const event = await this.prisma.tradeStopEvent.create({
-      data: {
-        newStopPriceMinor: BigInt(input.newStopPriceMinor),
-        occurredAt: new Date(input.occurredAt),
-        previousStopPriceMinor: BigInt(input.previousStopPriceMinor),
-        tradeId
-      }
+    const event = await this.prisma.$transaction(async (transaction) => {
+      const created = await transaction.tradeStopEvent.create({
+        data: {
+          newStopPriceMinor: BigInt(input.newStopPriceMinor),
+          occurredAt: new Date(input.occurredAt),
+          previousStopPriceMinor: BigInt(input.previousStopPriceMinor),
+          tradeId
+        }
+      });
+      await transaction.behaviorEvidenceSnapshot.updateMany({
+        data: { invalidatedAt: new Date(), invalidationReason: "STOP_EVENT_ADDED" },
+        where: { invalidatedAt: null, tradeId, userId }
+      });
+      return created;
     });
     return {
       ...event,
@@ -182,7 +195,7 @@ export class BehaviorRulesService {
     const dailyTradeIds = nearbyTrades
       .filter((candidate) => dateKey(candidate.openedAt, timeZone) === localDay)
       .map(({ id }) => id);
-    const results = evaluateBehaviorRules({
+    const evaluationContext = {
       currentPlaybookId: trade.playbookId,
       dailyTradeIds,
       evaluatedPlaybookId: playbook.id,
@@ -209,7 +222,8 @@ export class BehaviorRulesService {
       priorQuantities: priorTrades.map(({ quantity }) => quantity.toFixed()),
       quantity: trade.quantity.toFixed(),
       tradeId: trade.id
-    });
+    };
+    const results = evaluateBehaviorRules(evaluationContext);
 
     const persisted = await this.prisma.$transaction(
       results.map((result) => {
@@ -244,6 +258,24 @@ export class BehaviorRulesService {
         });
       })
     );
+    const snapshots = buildBehaviorEvidenceSnapshots(evaluationContext, results);
+    await this.prisma.$transaction([
+      this.prisma.behaviorEvidenceSnapshot.updateMany({
+        data: { invalidatedAt: new Date(), invalidationReason: "RECOMPUTED" },
+        where: { invalidatedAt: null, tradeId: trade.id, userId }
+      }),
+      this.prisma.behaviorEvidenceSnapshot.createMany({
+        data: snapshots.map((snapshot) => ({
+          algorithmVersion: ALGORITHM_VERSION,
+          inputData: snapshot.inputData as unknown as Prisma.InputJsonValue,
+          outputData: snapshot.outputData as unknown as Prisma.InputJsonValue,
+          patternType: snapshot.patternType,
+          sourceTradeUpdatedAt: trade.updatedAt,
+          tradeId: trade.id,
+          userId
+        }))
+      })
+    ]);
     await this.prisma.trade.update({
       data: {
         executionScore: null,
@@ -269,5 +301,33 @@ export class BehaviorRulesService {
       orderBy: { playbookRule: { type: "asc" } },
       where: { tradeId }
     });
+  }
+
+  public async evidenceSnapshots(userId: string, tradeId: string) {
+    const trade = await this.prisma.trade.findFirst({
+      select: { id: true },
+      where: { id: tradeId, userId }
+    });
+    if (trade === null) throw new NotFoundException("Trade was not found");
+    return this.prisma.behaviorEvidenceSnapshot.findMany({
+      orderBy: [{ computedAt: "desc" }, { patternType: "asc" }],
+      where: { tradeId, userId }
+    });
+  }
+
+  public async recomputeSnapshot(userId: string, snapshotId: string) {
+    const snapshot = await this.prisma.behaviorEvidenceSnapshot.findFirst({
+      where: { id: snapshotId, userId }
+    });
+    if (snapshot === null) throw new NotFoundException("Evidence snapshot was not found");
+    const recomputed = recomputeBehaviorEvidenceSnapshot(
+      snapshot.patternType,
+      snapshot.inputData as unknown as StoredBehaviorContext
+    );
+    return {
+      matchesStoredOutput: JSON.stringify(recomputed) === JSON.stringify(snapshot.outputData),
+      recomputed,
+      snapshotId: snapshot.id
+    };
   }
 }

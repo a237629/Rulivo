@@ -291,4 +291,77 @@ describe("step 7 database contract", () => {
     expect(migration).toContain("trade_review_summaries_trade_user_fkey");
     expect(migration).not.toMatch(/\b(?:DROP|TRUNCATE)\b/i);
   });
+
+  it("stores step 30 reproducible evidence snapshots and invalidates them after trade edits", () => {
+    const migration = readFileSync(
+      resolve("prisma/migrations/20260728001800_step_30_evidence_snapshots/migration.sql"),
+      "utf8"
+    );
+    expect(migration).toContain('CREATE TABLE "behavior_evidence_snapshots"');
+    expect(migration).toContain('"input_data" JSONB NOT NULL');
+    expect(migration).toContain('"output_data" JSONB NOT NULL');
+    expect(migration).toContain("behavior_evidence_snapshots_one_current_pattern");
+    expect(migration).toContain("invalidate_trade_evidence_snapshots");
+    expect(migration).toContain("trades_invalidate_evidence_snapshots");
+    expect(migration).toContain("'TRADE_MODIFIED'");
+    expect(migration).not.toMatch(/\b(?:DROP|TRUNCATE)\b/i);
+  });
+
+  it("records step 31 incremental and full pattern-detection runs with algorithm provenance", () => {
+    const migration = readFileSync(
+      resolve("prisma/migrations/20260729000100_step_31_pattern_detection_jobs/migration.sql"),
+      "utf8"
+    );
+    expect(migration).toContain('CREATE TYPE "PatternDetectionMode"');
+    expect(migration).toContain("'DAILY_INCREMENTAL'");
+    expect(migration).toContain("'WEEKLY_FULL'");
+    expect(migration).toContain('CREATE TABLE "pattern_detection_runs"');
+    expect(migration).toContain('"algorithm_version" VARCHAR(32) NOT NULL');
+    expect(migration).toContain("pattern_detection_runs_completion_check");
+    expect(migration).not.toMatch(/\b(?:DROP|TRUNCATE)\b/i);
+  });
+
+  it("stores step 32 confidence factors with count conservation and bounded metrics", () => {
+    const migration = readFileSync(
+      resolve("prisma/migrations/20260729000200_step_32_pattern_confidence/migration.sql"),
+      "utf8"
+    );
+    expect(migration).toContain('CREATE TABLE "behavior_pattern_confidences"');
+    expect(migration).toContain('"counterexample_count" INTEGER NOT NULL');
+    expect(migration).toContain('"effect_size" DECIMAL(7,6) NOT NULL');
+    expect(migration).toContain('"data_completeness" DECIMAL(7,6) NOT NULL');
+    expect(migration).toContain("behavior_pattern_confidences_counts_check");
+    expect(migration).toContain("behavior_pattern_confidences_ranges_check");
+    expect(migration).not.toMatch(/\b(?:DROP|TRUNCATE)\b/i);
+  });
+
+  it("stores step 33 schema-validated AI explanations with input and model provenance", () => {
+    const migration = readFileSync(
+      resolve("prisma/migrations/20260729000300_step_33_pattern_explanations/migration.sql"),
+      "utf8"
+    );
+    expect(migration).toContain('CREATE TABLE "behavior_pattern_explanations"');
+    expect(migration).toContain('"input_metric_ids" JSONB NOT NULL');
+    expect(migration).toContain('"input_fingerprint" CHAR(64) NOT NULL');
+    expect(migration).toContain('"model_version" VARCHAR(100) NOT NULL');
+    expect(migration).toContain('"prompt_version" VARCHAR(50) NOT NULL');
+    expect(migration).toContain("behavior_pattern_explanations_output_check");
+    expect(migration).not.toMatch(/\b(?:DROP|TRUNCATE)\b/i);
+  });
+
+  it("stores step 35 AI corrections as immutable-target feedback without changing facts", () => {
+    const migration = readFileSync(
+      resolve("prisma/migrations/20260729000400_step_35_ai_corrections/migration.sql"),
+      "utf8"
+    );
+    expect(migration).toContain('CREATE TYPE "PatternExplanationFeedbackReason"');
+    expect(migration).toContain("'INACCURATE'");
+    expect(migration).toContain("'UNHELPFUL'");
+    expect(migration).toContain("'EVIDENCE_ERROR'");
+    expect(migration).toContain("'TONE_INAPPROPRIATE'");
+    expect(migration).toContain('"explanation_output_snapshot" JSONB NOT NULL');
+    expect(migration).toContain('"explanation_input_fingerprint" CHAR(64) NOT NULL');
+    expect(migration).toContain("ON DELETE RESTRICT");
+    expect(migration).not.toMatch(/\b(?:UPDATE|DROP|TRUNCATE)\s+(?:trades|behavior_evidence)/i);
+  });
 });

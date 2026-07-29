@@ -4,11 +4,13 @@ import { I18nextProvider, useTranslation } from "react-i18next";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { i18n } from "@rulivo/i18n";
+import { useRouter } from "expo-router";
 import type { PreparedImage } from "../../src/evidence/image-upload";
 import { VoiceRecorder } from "../../src/evidence/voice-recorder";
 
 function EvidenceContent() {
   const { t } = useTranslation();
+  const router = useRouter();
   const [consent, setConsent] = useState(false);
   const [image, setImage] = useState<PreparedImage>();
   const [message, setMessage] = useState<string>();
@@ -57,6 +59,15 @@ function EvidenceContent() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.eyebrow}>{t("navigation.evidence")}</Text>
+      <TouchableOpacity
+        style={styles.reportButton}
+        onPress={() => {
+          router.push("/evidence-report");
+        }}
+      >
+        <Text style={styles.reportButtonTitle}>{t("evidenceReport.title")}</Text>
+        <Text style={styles.description}>{t("evidenceReport.openDescription")}</Text>
+      </TouchableOpacity>
       <Text style={styles.title}>{t("imageUpload.title")}</Text>
       <Text style={styles.description}>{t("imageUpload.description")}</Text>
       <View style={styles.row}>
@@ -107,6 +118,15 @@ const styles = StyleSheet.create({
   eyebrow: { color: "#2ED7A2", fontSize: 12, fontWeight: "700", letterSpacing: 1.4 },
   preview: { backgroundColor: "#101D2B", borderRadius: 12, height: 260, width: "100%" },
   row: { flexDirection: "row", gap: 12 },
+  reportButton: {
+    backgroundColor: "#102A27",
+    borderColor: "#2ED7A2",
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 6,
+    padding: 16
+  },
+  reportButtonTitle: { color: "#F7F8FA", fontSize: 18, fontWeight: "700" },
   status: { color: "#2ED7A2", fontSize: 14 },
   title: { color: "#F7F8FA", fontSize: 30, fontWeight: "700" }
 });

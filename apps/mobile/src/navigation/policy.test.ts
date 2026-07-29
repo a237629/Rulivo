@@ -56,6 +56,12 @@ describe("navigation guards", () => {
         onboardingComplete: true
       })
     ).toEqual({ path: "/settings", reason: "allowed" });
+    expect(
+      resolveNavigation("/evidence-report", {
+        authenticated: true,
+        onboardingComplete: true
+      })
+    ).toEqual({ path: "/evidence-report", reason: "allowed" });
   });
 });
 

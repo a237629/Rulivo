@@ -81,6 +81,38 @@ enum FollowUpSessionStatus {
   MAX_ROUNDS
 }
 
+enum PatternDetectionMode {
+  DAILY_INCREMENTAL
+  WEEKLY_FULL
+}
+
+enum PatternDetectionRunStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+enum PatternConfidenceLevel {
+  INSUFFICIENT
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum PatternDominantStatus {
+  UNKNOWN
+  BALANCED
+  PASS
+  FAIL
+}
+
+enum PatternExplanationFeedbackReason {
+  INACCURATE
+  UNHELPFUL
+  EVIDENCE_ERROR
+  TONE_INAPPROPRIATE
+}
+
 enum ImageSource {
   CAMERA
   LIBRARY
@@ -153,28 +185,32 @@ enum Role {
 }
 
 model User {
-  id                  String               @id @default(uuid()) @db.Uuid
-  email               String               @unique @db.VarChar(320)
-  status              UserStatus           @default(ACTIVE)
-  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt           DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
-  profile             UserProfile?
-  tradingAccounts     TradingAccount[]
-  trades              Trade[]
-  subscriptions       Subscription[]
-  authIdentities      AuthIdentity[]
-  authSessions        AuthSession[]
-  roleAssignments     UserRoleAssignment[]
-  auditEvents         AuditLog[]           @relation("AuditActor")
-  targetedAuditEvents AuditLog[]           @relation("AuditTarget")
-  csvImportBatches    CsvImportBatch[]
-  csvMappingTemplates CsvMappingTemplate[]
-  playbooks           Playbook[]
-  tradeImages         TradeImage[]
-  voiceRecordings     VoiceRecording[]
-  tradeNotes          TradeNote[]
-  followUpSessions    FollowUpSession[]
-  tradeReviewSummaries TradeReviewSummary[]
+  id                         String                       @id @default(uuid()) @db.Uuid
+  email                      String                       @unique @db.VarChar(320)
+  status                     UserStatus                   @default(ACTIVE)
+  createdAt                  DateTime                     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                  DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  profile                    UserProfile?
+  tradingAccounts            TradingAccount[]
+  trades                     Trade[]
+  subscriptions              Subscription[]
+  authIdentities             AuthIdentity[]
+  authSessions               AuthSession[]
+  roleAssignments            UserRoleAssignment[]
+  auditEvents                AuditLog[]                   @relation("AuditActor")
+  targetedAuditEvents        AuditLog[]                   @relation("AuditTarget")
+  csvImportBatches           CsvImportBatch[]
+  csvMappingTemplates        CsvMappingTemplate[]
+  playbooks                  Playbook[]
+  tradeImages                TradeImage[]
+  voiceRecordings            VoiceRecording[]
+  tradeNotes                 TradeNote[]
+  followUpSessions           FollowUpSession[]
+  tradeReviewSummaries       TradeReviewSummary[]
+  behaviorEvidenceSnapshots  BehaviorEvidenceSnapshot[]
+  behaviorPatternConfidences BehaviorPatternConfidence[]
+  behaviorPatternExplanation BehaviorPatternExplanation?
+  patternExplanationFeedback PatternExplanationFeedback[]
 
   @@map("users")
 }
@@ -259,18 +295,18 @@ model AuthSession {
 }
 
 model UserProfile {
-  userId                String        @id @map("user_id") @db.Uuid
-  displayName           String?       @map("display_name") @db.VarChar(100)
-  locale                String        @default("zh-CN") @db.VarChar(16)
-  timeZone              String        @default("UTC") @map("time_zone") @db.VarChar(64)
-  defaultCurrency       String        @default("USD") @map("default_currency") @db.Char(3)
-  defaultMarket         TradingMarket @default(UNITED_STATES) @map("default_market")
-  riskUnit              RiskUnit      @default(PERCENT_OF_EQUITY) @map("risk_unit")
-  onboardingCompletedAt DateTime?     @map("onboarding_completed_at") @db.Timestamptz(3)
-  autoDeleteVoiceAfterTranscription Boolean @default(false) @map("auto_delete_voice_after_transcription")
-  createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
-  user                  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId                            String        @id @map("user_id") @db.Uuid
+  displayName                       String?       @map("display_name") @db.VarChar(100)
+  locale                            String        @default("zh-CN") @db.VarChar(16)
+  timeZone                          String        @default("UTC") @map("time_zone") @db.VarChar(64)
+  defaultCurrency                   String        @default("USD") @map("default_currency") @db.Char(3)
+  defaultMarket                     TradingMarket @default(UNITED_STATES) @map("default_market")
+  riskUnit                          RiskUnit      @default(PERCENT_OF_EQUITY) @map("risk_unit")
+  onboardingCompletedAt             DateTime?     @map("onboarding_completed_at") @db.Timestamptz(3)
+  autoDeleteVoiceAfterTranscription Boolean       @default(false) @map("auto_delete_voice_after_transcription")
+  createdAt                         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user                              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_profiles")
 }
@@ -314,53 +350,54 @@ model Instrument {
 }
 
 model Trade {
-  id                    String            @id @default(uuid()) @db.Uuid
-  userId                String            @map("user_id") @db.Uuid
-  tradingAccountId      String            @map("trading_account_id") @db.Uuid
-  instrumentId          String            @map("instrument_id") @db.Uuid
-  importBatchId         String?           @map("import_batch_id") @db.Uuid
-  playbookId            String?           @map("playbook_id") @db.Uuid
-  symbol                String            @db.VarChar(32)
-  market                String?           @db.VarChar(32)
-  side                  TradeSide
-  openedAt              DateTime          @map("opened_at") @db.Timestamptz(3)
-  closedAt              DateTime?         @map("closed_at") @db.Timestamptz(3)
-  quantity              Decimal           @db.Decimal(30, 10)
-  entryPriceMinor       BigInt            @map("entry_price_minor")
-  exitPriceMinor        BigInt?           @map("exit_price_minor")
-  currency              String            @db.Char(3)
-  realizedPnlMinor      BigInt?           @map("realized_pnl_minor")
-  initialRiskMinor      BigInt?           @map("initial_risk_minor")
-  rMultiple             Decimal?          @map("r_multiple") @db.Decimal(18, 6)
-  analyticsCalculatedAt DateTime?         @map("analytics_calculated_at") @db.Timestamptz(3)
-  executionScore        Int?              @map("execution_score") @db.SmallInt
-  executionScoreVersion String?           @map("execution_score_version") @db.VarChar(32)
-  executionScoreCalculatedAt DateTime?    @map("execution_score_calculated_at") @db.Timestamptz(3)
-  plannedTargetRMultiple Decimal?         @map("planned_target_r_multiple") @db.Decimal(18, 6)
-  resultScore           Int?              @map("result_score") @db.SmallInt
-  resultScoreVersion    String?           @map("result_score_version") @db.VarChar(32)
-  resultScoreCalculatedAt DateTime?        @map("result_score_calculated_at") @db.Timestamptz(3)
-  quadrantEvaluation     TradeQuadrant?    @map("quadrant_evaluation")
-  quadrantVersion        String?           @map("quadrant_version") @db.VarChar(32)
-  quadrantCalculatedAt   DateTime?         @map("quadrant_calculated_at") @db.Timestamptz(3)
-  source                TradeSource       @default(MANUAL)
-  status                TradeStatus       @default(DRAFT)
-  createdAt             DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt             DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
-  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tradingAccount        TradingAccount    @relation(fields: [tradingAccountId, userId], references: [id, userId], onDelete: Restrict)
-  instrument            Instrument        @relation(fields: [instrumentId], references: [id], onDelete: Restrict)
-  importBatch           CsvImportBatch?   @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
-  playbook              Playbook?         @relation(fields: [playbookId], references: [id], onDelete: SetNull)
-  executions            Execution[]
-  fees                  Fee[]
-  ruleResults           TradeRuleResult[]
-  stopEvents            TradeStopEvent[]
-  images                TradeImage[]
-  voiceRecordings       VoiceRecording[]
-  notes                 TradeNote[]
-  followUpSessions      FollowUpSession[]
-  reviewSummary         TradeReviewSummary?
+  id                         String                     @id @default(uuid()) @db.Uuid
+  userId                     String                     @map("user_id") @db.Uuid
+  tradingAccountId           String                     @map("trading_account_id") @db.Uuid
+  instrumentId               String                     @map("instrument_id") @db.Uuid
+  importBatchId              String?                    @map("import_batch_id") @db.Uuid
+  playbookId                 String?                    @map("playbook_id") @db.Uuid
+  symbol                     String                     @db.VarChar(32)
+  market                     String?                    @db.VarChar(32)
+  side                       TradeSide
+  openedAt                   DateTime                   @map("opened_at") @db.Timestamptz(3)
+  closedAt                   DateTime?                  @map("closed_at") @db.Timestamptz(3)
+  quantity                   Decimal                    @db.Decimal(30, 10)
+  entryPriceMinor            BigInt                     @map("entry_price_minor")
+  exitPriceMinor             BigInt?                    @map("exit_price_minor")
+  currency                   String                     @db.Char(3)
+  realizedPnlMinor           BigInt?                    @map("realized_pnl_minor")
+  initialRiskMinor           BigInt?                    @map("initial_risk_minor")
+  rMultiple                  Decimal?                   @map("r_multiple") @db.Decimal(18, 6)
+  analyticsCalculatedAt      DateTime?                  @map("analytics_calculated_at") @db.Timestamptz(3)
+  executionScore             Int?                       @map("execution_score") @db.SmallInt
+  executionScoreVersion      String?                    @map("execution_score_version") @db.VarChar(32)
+  executionScoreCalculatedAt DateTime?                  @map("execution_score_calculated_at") @db.Timestamptz(3)
+  plannedTargetRMultiple     Decimal?                   @map("planned_target_r_multiple") @db.Decimal(18, 6)
+  resultScore                Int?                       @map("result_score") @db.SmallInt
+  resultScoreVersion         String?                    @map("result_score_version") @db.VarChar(32)
+  resultScoreCalculatedAt    DateTime?                  @map("result_score_calculated_at") @db.Timestamptz(3)
+  quadrantEvaluation         TradeQuadrant?             @map("quadrant_evaluation")
+  quadrantVersion            String?                    @map("quadrant_version") @db.VarChar(32)
+  quadrantCalculatedAt       DateTime?                  @map("quadrant_calculated_at") @db.Timestamptz(3)
+  source                     TradeSource                @default(MANUAL)
+  status                     TradeStatus                @default(DRAFT)
+  createdAt                  DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                  DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user                       User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tradingAccount             TradingAccount             @relation(fields: [tradingAccountId, userId], references: [id, userId], onDelete: Restrict)
+  instrument                 Instrument                 @relation(fields: [instrumentId], references: [id], onDelete: Restrict)
+  importBatch                CsvImportBatch?            @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  playbook                   Playbook?                  @relation(fields: [playbookId], references: [id], onDelete: SetNull)
+  executions                 Execution[]
+  fees                       Fee[]
+  ruleResults                TradeRuleResult[]
+  stopEvents                 TradeStopEvent[]
+  images                     TradeImage[]
+  voiceRecordings            VoiceRecording[]
+  notes                      TradeNote[]
+  followUpSessions           FollowUpSession[]
+  reviewSummary              TradeReviewSummary?
+  behaviorEvidenceSnapshots  BehaviorEvidenceSnapshot[]
 
   @@unique([id, userId])
   @@index([userId, openedAt])
@@ -391,17 +428,17 @@ model TradeNote {
 }
 
 model FollowUpSession {
-  id          String                @id @default(uuid()) @db.Uuid
-  tradeId     String                @map("trade_id") @db.Uuid
-  userId      String                @map("user_id") @db.Uuid
-  status      FollowUpSessionStatus @default(ACTIVE)
-  currentRound Int                  @default(0) @map("current_round")
-  createdAt   DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
-  completedAt DateTime?             @map("completed_at") @db.Timestamptz(3)
-  trade       Trade                 @relation(fields: [tradeId, userId], references: [id, userId], onDelete: Cascade)
-  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  turns       FollowUpTurn[]
+  id           String                @id @default(uuid()) @db.Uuid
+  tradeId      String                @map("trade_id") @db.Uuid
+  userId       String                @map("user_id") @db.Uuid
+  status       FollowUpSessionStatus @default(ACTIVE)
+  currentRound Int                   @default(0) @map("current_round")
+  createdAt    DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  completedAt  DateTime?             @map("completed_at") @db.Timestamptz(3)
+  trade        Trade                 @relation(fields: [tradeId, userId], references: [id, userId], onDelete: Cascade)
+  user         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  turns        FollowUpTurn[]
 
   @@index([tradeId, createdAt])
   @@index([userId, status])
@@ -431,7 +468,7 @@ model TradeReviewSummary {
   id               String   @id @default(uuid()) @db.Uuid
   tradeId          String   @unique @map("trade_id") @db.Uuid
   userId           String   @map("user_id") @db.Uuid
-  summary           Json
+  summary          Json
   generatorVersion String   @map("generator_version") @db.VarChar(32)
   generatedAt      DateTime @default(now()) @map("generated_at") @db.Timestamptz(3)
   updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -444,21 +481,21 @@ model TradeReviewSummary {
 }
 
 model TradeImage {
-  id               String      @id @default(uuid()) @db.Uuid
-  userId           String      @map("user_id") @db.Uuid
-  tradeId          String?     @map("trade_id") @db.Uuid
-  objectKey        String      @unique @map("object_key") @db.VarChar(255)
-  originalFileName String?     @map("original_file_name") @db.VarChar(255)
-  mediaType        String      @map("media_type") @db.VarChar(64)
-  sizeBytes        Int         @map("size_bytes")
+  id               String            @id @default(uuid()) @db.Uuid
+  userId           String            @map("user_id") @db.Uuid
+  tradeId          String?           @map("trade_id") @db.Uuid
+  objectKey        String            @unique @map("object_key") @db.VarChar(255)
+  originalFileName String?           @map("original_file_name") @db.VarChar(255)
+  mediaType        String            @map("media_type") @db.VarChar(64)
+  sizeBytes        Int               @map("size_bytes")
   width            Int
   height           Int
   source           ImageSource
-  consentedAt      DateTime    @map("consented_at") @db.Timestamptz(3)
-  exifRemoved      Boolean     @default(true) @map("exif_removed")
-  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
-  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  trade            Trade?      @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  consentedAt      DateTime          @map("consented_at") @db.Timestamptz(3)
+  exifRemoved      Boolean           @default(true) @map("exif_removed")
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trade            Trade?            @relation(fields: [tradeId], references: [id], onDelete: Cascade)
   parses           ScreenshotParse[]
 
   @@index([userId, createdAt])
@@ -467,34 +504,34 @@ model TradeImage {
 }
 
 model ScreenshotParse {
-  id             String                @id @default(uuid()) @db.Uuid
-  tradeImageId   String                @map("trade_image_id") @db.Uuid
-  status         ScreenshotParseStatus @default(CANDIDATE)
-  candidates     Json
-  confirmedData  Json?                 @map("confirmed_data")
-  modelVersion   String                @map("model_version") @db.VarChar(100)
-  promptVersion  String                @map("prompt_version") @db.VarChar(50)
-  confirmedAt    DateTime?             @map("confirmed_at") @db.Timestamptz(3)
-  createdAt      DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
-  tradeImage     TradeImage            @relation(fields: [tradeImageId], references: [id], onDelete: Cascade)
+  id            String                @id @default(uuid()) @db.Uuid
+  tradeImageId  String                @map("trade_image_id") @db.Uuid
+  status        ScreenshotParseStatus @default(CANDIDATE)
+  candidates    Json
+  confirmedData Json?                 @map("confirmed_data")
+  modelVersion  String                @map("model_version") @db.VarChar(100)
+  promptVersion String                @map("prompt_version") @db.VarChar(50)
+  confirmedAt   DateTime?             @map("confirmed_at") @db.Timestamptz(3)
+  createdAt     DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  tradeImage    TradeImage            @relation(fields: [tradeImageId], references: [id], onDelete: Cascade)
 
   @@index([tradeImageId, createdAt])
   @@map("screenshot_parses")
 }
 
 model VoiceRecording {
-  id           String   @id @default(uuid()) @db.Uuid
-  userId       String   @map("user_id") @db.Uuid
-  tradeId      String?  @map("trade_id") @db.Uuid
-  objectKey    String   @unique @map("object_key") @db.VarChar(255)
-  mediaType    String   @map("media_type") @db.VarChar(64)
-  sizeBytes    Int      @map("size_bytes")
-  durationMs   Int      @map("duration_ms")
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  objectDeletedAt DateTime? @map("object_deleted_at") @db.Timestamptz(3)
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  trade        Trade?   @relation(fields: [tradeId], references: [id], onDelete: Cascade)
-  transcription VoiceTranscription?
+  id              String              @id @default(uuid()) @db.Uuid
+  userId          String              @map("user_id") @db.Uuid
+  tradeId         String?             @map("trade_id") @db.Uuid
+  objectKey       String              @unique @map("object_key") @db.VarChar(255)
+  mediaType       String              @map("media_type") @db.VarChar(64)
+  sizeBytes       Int                 @map("size_bytes")
+  durationMs      Int                 @map("duration_ms")
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  objectDeletedAt DateTime?           @map("object_deleted_at") @db.Timestamptz(3)
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trade           Trade?              @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  transcription   VoiceTranscription?
 
   @@index([userId, createdAt])
   @@index([tradeId, createdAt])
@@ -502,16 +539,16 @@ model VoiceRecording {
 }
 
 model VoiceTranscription {
-  id               String                   @id @default(uuid()) @db.Uuid
-  voiceRecordingId String                   @unique @map("voice_recording_id") @db.Uuid
-  status           VoiceTranscriptionStatus @default(CANDIDATE)
-  candidateText    String                   @map("candidate_text") @db.Text
-  confirmedText    String?                  @map("confirmed_text") @db.Text
-  modelVersion     String                   @map("model_version") @db.VarChar(100)
-  promptVersion    String                   @map("prompt_version") @db.VarChar(50)
-  confirmedAt      DateTime?                @map("confirmed_at") @db.Timestamptz(3)
-  createdAt        DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
-  voiceRecording   VoiceRecording           @relation(fields: [voiceRecordingId], references: [id], onDelete: Cascade)
+  id                String                   @id @default(uuid()) @db.Uuid
+  voiceRecordingId  String                   @unique @map("voice_recording_id") @db.Uuid
+  status            VoiceTranscriptionStatus @default(CANDIDATE)
+  candidateText     String                   @map("candidate_text") @db.Text
+  confirmedText     String?                  @map("confirmed_text") @db.Text
+  modelVersion      String                   @map("model_version") @db.VarChar(100)
+  promptVersion     String                   @map("prompt_version") @db.VarChar(50)
+  confirmedAt       DateTime?                @map("confirmed_at") @db.Timestamptz(3)
+  createdAt         DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  voiceRecording    VoiceRecording           @relation(fields: [voiceRecordingId], references: [id], onDelete: Cascade)
   insightExtraction VoiceInsightExtraction?
 
   @@index([status, createdAt])
@@ -594,6 +631,107 @@ model TradeRuleResult {
   @@unique([tradeId, playbookRuleId])
   @@index([tradeId, status])
   @@map("trade_rule_results")
+}
+
+model BehaviorEvidenceSnapshot {
+  id                   String           @id @default(uuid()) @db.Uuid
+  tradeId              String           @map("trade_id") @db.Uuid
+  userId               String           @map("user_id") @db.Uuid
+  patternType          BehaviorRuleType @map("pattern_type")
+  inputData            Json             @map("input_data")
+  outputData           Json             @map("output_data")
+  algorithmVersion     String           @map("algorithm_version") @db.VarChar(32)
+  sourceTradeUpdatedAt DateTime         @map("source_trade_updated_at") @db.Timestamptz(3)
+  computedAt           DateTime         @default(now()) @map("computed_at") @db.Timestamptz(3)
+  invalidatedAt        DateTime?        @map("invalidated_at") @db.Timestamptz(3)
+  invalidationReason   String?          @map("invalidation_reason") @db.VarChar(100)
+  trade                Trade            @relation(fields: [tradeId, userId], references: [id, userId], onDelete: Cascade)
+  user                 User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tradeId, patternType, computedAt])
+  @@index([userId, invalidatedAt])
+  @@map("behavior_evidence_snapshots")
+}
+
+model PatternDetectionRun {
+  id                String                      @id @default(uuid()) @db.Uuid
+  mode              PatternDetectionMode
+  status            PatternDetectionRunStatus   @default(RUNNING)
+  algorithmVersion  String                      @map("algorithm_version") @db.VarChar(32)
+  cutoffAt          DateTime                    @map("cutoff_at") @db.Timestamptz(3)
+  startedAt         DateTime                    @default(now()) @map("started_at") @db.Timestamptz(3)
+  finishedAt        DateTime?                   @map("finished_at") @db.Timestamptz(3)
+  processedTrades   Int                         @default(0) @map("processed_trades")
+  failedTrades      Int                         @default(0) @map("failed_trades")
+  errorMessage      String?                     @map("error_message") @db.Text
+  confidenceMetrics BehaviorPatternConfidence[]
+
+  @@index([mode, status, cutoffAt])
+  @@map("pattern_detection_runs")
+}
+
+model BehaviorPatternConfidence {
+  id                  String                 @id @default(uuid()) @db.Uuid
+  userId              String                 @map("user_id") @db.Uuid
+  patternType         BehaviorRuleType       @map("pattern_type")
+  sampleSize          Int                    @map("sample_size")
+  knownSampleSize     Int                    @map("known_sample_size")
+  passCount           Int                    @map("pass_count")
+  failCount           Int                    @map("fail_count")
+  unknownCount        Int                    @map("unknown_count")
+  counterexampleCount Int                    @map("counterexample_count")
+  dominantStatus      PatternDominantStatus  @map("dominant_status")
+  effectSize          Decimal                @map("effect_size") @db.Decimal(7, 6)
+  dataCompleteness    Decimal                @map("data_completeness") @db.Decimal(7, 6)
+  confidenceScore     Int                    @map("confidence_score") @db.SmallInt
+  level               PatternConfidenceLevel
+  algorithmVersion    String                 @map("algorithm_version") @db.VarChar(32)
+  sourceRunId         String?                @map("source_run_id") @db.Uuid
+  calculatedAt        DateTime               @default(now()) @map("calculated_at") @db.Timestamptz(3)
+  user                User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceRun           PatternDetectionRun?   @relation(fields: [sourceRunId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, patternType])
+  @@index([userId, level])
+  @@index([sourceRunId])
+  @@map("behavior_pattern_confidences")
+}
+
+model BehaviorPatternExplanation {
+  id               String                       @id @default(uuid()) @db.Uuid
+  userId           String                       @unique @map("user_id") @db.Uuid
+  inputMetricIds   Json                         @map("input_metric_ids")
+  inputFingerprint String                       @map("input_fingerprint") @db.Char(64)
+  output           Json
+  modelVersion     String                       @map("model_version") @db.VarChar(100)
+  promptVersion    String                       @map("prompt_version") @db.VarChar(50)
+  generatedAt      DateTime                     @default(now()) @map("generated_at") @db.Timestamptz(3)
+  user             User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  feedback         PatternExplanationFeedback[]
+
+  @@index([generatedAt])
+  @@map("behavior_pattern_explanations")
+}
+
+model PatternExplanationFeedback {
+  id                          String                           @id @default(uuid()) @db.Uuid
+  explanationId               String                           @map("explanation_id") @db.Uuid
+  userId                      String                           @map("user_id") @db.Uuid
+  patternType                 BehaviorRuleType                 @map("pattern_type")
+  reason                      PatternExplanationFeedbackReason
+  comment                     String?                          @db.VarChar(1000)
+  explanationOutputSnapshot   Json                             @map("explanation_output_snapshot")
+  explanationInputFingerprint String                           @map("explanation_input_fingerprint") @db.Char(64)
+  modelVersion                String                           @map("model_version") @db.VarChar(100)
+  promptVersion               String                           @map("prompt_version") @db.VarChar(50)
+  submittedAt                 DateTime                         @default(now()) @map("submitted_at") @db.Timestamptz(3)
+  explanation                 BehaviorPatternExplanation       @relation(fields: [explanationId], references: [id], onDelete: Restrict)
+  user                        User                             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, explanationId, patternType, reason, explanationInputFingerprint])
+  @@index([explanationId, submittedAt])
+  @@index([userId, submittedAt])
+  @@map("pattern_explanation_feedback")
 }
 
 model Execution {

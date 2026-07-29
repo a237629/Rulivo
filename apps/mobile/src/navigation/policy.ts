@@ -1,4 +1,12 @@
-export const appPaths = ["/", "/review", "/evidence", "/plan", "/profile", "/settings"] as const;
+export const appPaths = [
+  "/",
+  "/review",
+  "/evidence",
+  "/evidence-report",
+  "/plan",
+  "/profile",
+  "/settings"
+] as const;
 
 export type AppPath = (typeof appPaths)[number];
 export type PublicPath = "/onboarding" | "/auth/sign-in";

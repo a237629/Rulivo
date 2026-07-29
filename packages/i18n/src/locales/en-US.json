@@ -97,6 +97,64 @@
     "ready": "Image cropped and compressed. Review consent before upload.",
     "loginRequired": "Image is ready. Connect the API login token to upload."
   },
+  "evidenceReport": {
+    "eyebrow": "RULIVO · BEHAVIOR EVIDENCE",
+    "title": "Evidence report",
+    "description": "Every conclusion comes from calculated metrics and current evidence, with counterexamples and limitations shown explicitly.",
+    "openDescription": "Review conclusions, samples, impact, time windows, related trades, and counterexamples.",
+    "empty": "No current report",
+    "loading": "Loading evidence report…",
+    "loginRequired": "Connect a login Access Token to load your private evidence report.",
+    "loadFailed": "The report could not be loaded. A current AI explanation may not exist yet.",
+    "sample": "Sample",
+    "sampleSize": "{{count}} samples",
+    "counterexampleCount": "{{count}} counterexamples",
+    "completeness": "{{value}} complete",
+    "impact": "Impact",
+    "impactValue": "Effect {{effect}} · confidence {{score}}",
+    "timeWindow": "Time window",
+    "windowValue": "{{from}} to {{to}}",
+    "noWindow": "No time window available",
+    "relatedTrades": "Related trades",
+    "noTrades": "No related trades",
+    "tradeMeta": "{{date}} · {{status}}",
+    "counterexamples": "Counterexamples",
+    "noCounterexamples": "No counterexamples are available in the current sample",
+    "limitationsTitle": "Limitations",
+    "limitationItem": "· {{value}}",
+    "evidenceId": "Metric evidence ID: {{id}}",
+    "feedback": {
+      "title": "Does this explanation need correction?",
+      "description": "Choose the closest issue. Feedback is stored separately and never edits trades or historical evidence automatically.",
+      "saved": "Feedback saved.",
+      "failed": "Feedback could not be submitted. Try again later.",
+      "factNotice": "Historical facts remain unchanged; future explanations may use this feedback.",
+      "reasons": {
+        "INACCURATE": "Inaccurate",
+        "UNHELPFUL": "Not helpful",
+        "EVIDENCE_ERROR": "Evidence error",
+        "TONE_INAPPROPRIATE": "Tone issue"
+      }
+    },
+    "levels": {
+      "INSUFFICIENT": "Insufficient",
+      "LOW": "Low confidence",
+      "MEDIUM": "Medium confidence",
+      "HIGH": "High confidence"
+    },
+    "patterns": {
+      "LOSS_REENTRY": "Post-loss re-entry",
+      "POSITION_INCREASE": "Position increase",
+      "MOVED_STOP": "Moved stop",
+      "DAILY_TRADE_LIMIT": "Daily trade limit",
+      "PLAN_DEVIATION": "Plan deviation"
+    },
+    "limitations": {
+      "INSUFFICIENT_SAMPLE": "The sample has not reached the minimum threshold.",
+      "INCOMPLETE_DATA": "Some samples do not have a determinable result.",
+      "RELATED_TRADES_TRUNCATED": "Only the most recent related trades are shown."
+    }
+  },
   "tradeDetail": {
     "eyebrow": "RULIVO \u00b7 Trade detail",
     "title": "Single-trade review",

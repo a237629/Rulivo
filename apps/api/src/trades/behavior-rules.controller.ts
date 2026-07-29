@@ -98,4 +98,24 @@ export class BehaviorRulesController {
     if (!parsedId.success) throw new BadRequestException("Invalid trade ID");
     return this.rules.results(request.auth.userId, parsedId.data);
   }
+
+  @Get("trades/:tradeId/evidence-snapshots")
+  public async evidenceSnapshots(
+    @Req() request: AuthenticatedRequest,
+    @Param("tradeId") tradeId: string
+  ) {
+    const parsedId = idSchema.safeParse(tradeId);
+    if (!parsedId.success) throw new BadRequestException("Invalid trade ID");
+    return this.rules.evidenceSnapshots(request.auth.userId, parsedId.data);
+  }
+
+  @Post("evidence-snapshots/:snapshotId/recompute")
+  public async recomputeSnapshot(
+    @Req() request: AuthenticatedRequest,
+    @Param("snapshotId") snapshotId: string
+  ) {
+    const parsedId = idSchema.safeParse(snapshotId);
+    if (!parsedId.success) throw new BadRequestException("Invalid evidence snapshot ID");
+    return this.rules.recomputeSnapshot(request.auth.userId, parsedId.data);
+  }
 }

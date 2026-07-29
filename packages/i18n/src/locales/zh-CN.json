@@ -97,6 +97,64 @@
     "ready": "图片已裁剪压缩，请确认同意后上传。",
     "loginRequired": "图片已准备好，接入 API 登录令牌后即可上传。"
   },
+  "evidenceReport": {
+    "eyebrow": "RULIVO · 行为证据",
+    "title": "证据报告",
+    "description": "每项结论都来自已计算指标和当前有效证据，并明确展示反例与限制。",
+    "openDescription": "查看行为结论、样本、影响、时间窗、相关交易和反例。",
+    "empty": "暂无当前报告",
+    "loading": "正在加载证据报告……",
+    "loginRequired": "接入登录 Access Token 后即可加载你的私密证据报告。",
+    "loadFailed": "证据报告加载失败，可能尚未生成当前 AI 解释。",
+    "sample": "样本",
+    "sampleSize": "样本 {{count}}",
+    "counterexampleCount": "反例 {{count}}",
+    "completeness": "完整性 {{value}}",
+    "impact": "影响",
+    "impactValue": "效应量 {{effect}} · 置信度 {{score}}",
+    "timeWindow": "时间窗",
+    "windowValue": "{{from}} 至 {{to}}",
+    "noWindow": "暂无可用时间窗",
+    "relatedTrades": "相关交易",
+    "noTrades": "暂无相关交易",
+    "tradeMeta": "{{date}} · {{status}}",
+    "counterexamples": "反例",
+    "noCounterexamples": "当前样本中没有可展示的反例",
+    "limitationsTitle": "限制",
+    "limitationItem": "· {{value}}",
+    "evidenceId": "指标证据 ID：{{id}}",
+    "feedback": {
+      "title": "这项解释需要纠正吗？",
+      "description": "选择最符合的问题。反馈会单独保存，不会自动修改交易或历史证据。",
+      "saved": "反馈已保存。",
+      "failed": "反馈提交失败，请稍后重试。",
+      "factNotice": "历史事实保持不变；后续解释可参考此反馈。",
+      "reasons": {
+        "INACCURATE": "不准确",
+        "UNHELPFUL": "无帮助",
+        "EVIDENCE_ERROR": "证据错误",
+        "TONE_INAPPROPRIATE": "语气不适"
+      }
+    },
+    "levels": {
+      "INSUFFICIENT": "样本不足",
+      "LOW": "低置信度",
+      "MEDIUM": "中置信度",
+      "HIGH": "高置信度"
+    },
+    "patterns": {
+      "LOSS_REENTRY": "亏损后重入",
+      "POSITION_INCREASE": "仓位放大",
+      "MOVED_STOP": "移动止损",
+      "DAILY_TRADE_LIMIT": "日内交易上限",
+      "PLAN_DEVIATION": "偏离计划"
+    },
+    "limitations": {
+      "INSUFFICIENT_SAMPLE": "样本尚未达到最低门槛。",
+      "INCOMPLETE_DATA": "部分样本缺少可判定结果。",
+      "RELATED_TRADES_TRUNCATED": "相关交易仅展示最近记录。"
+    }
+  },
   "tradeDetail": {
     "eyebrow": "RULIVO \u00b7 \u4ea4\u6613\u8be6\u60c5",
     "title": "\u5355\u7b14\u4ea4\u6613\u590d\u76d8",
